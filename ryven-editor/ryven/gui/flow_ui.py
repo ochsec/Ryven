@@ -9,9 +9,11 @@ from qtpy.QtWidgets import (
     QTabWidget,
     QDockWidget,
     QUndoView,
-    QAction
+    QAction,
+    QShortcut,
 )
 from qtpy.QtCore import Qt, QByteArray
+from qtpy.QtGui import QKeySequence
 
 import ryvencore_qt.src.widgets as GUI
 from ryvencore.RC import FlowAlg
@@ -55,8 +57,15 @@ class FlowUI(QMainWindow):
         close_all_action = QAction('Close All Tabs', self)
         close_all_action.triggered.connect(self.close_docks)
         windows_menu.addActions([open_all_action, close_all_action])
+        toggle_right_action = QAction('Toggle Right Panel (F9)', self)
+        toggle_right_action.triggered.connect(self.toggle_right_panel)
+        windows_menu.addAction(toggle_right_action)
         for w in all_dock_widgets:
             windows_menu.addAction(w.toggleViewAction())
+
+        # Add keyboard shortcut for toggling right panel
+        self.toggle_shortcut = QShortcut(QKeySequence('F9'), self)
+        self.toggle_shortcut.activated.connect(self.toggle_right_panel)
 
         # set tabs to be on top
         self.setTabPosition(Qt.AllDockWidgetAreas, QTabWidget.North)
@@ -71,6 +80,10 @@ class FlowUI(QMainWindow):
         
         # inspector dock first
         self.ui.inspector_dock.raise_()
+
+        # Hide right panel by default to maximize graph area
+        for dock in right_area_widgets:
+            dock.hide()
 
         self.flow.algorithm_mode_changed.sub(self.flow_alg_mode_changed)
 
@@ -125,7 +138,22 @@ class FlowUI(QMainWindow):
         for dock in self.findChildren(QDockWidget):
             if not dock.isFloating():
                 dock.close()
-            
+
+    def toggle_right_panel(self):
+        """Toggle visibility of all right-side dock widgets."""
+        right_docks = [
+            d for d in self.findChildren(QDockWidget)
+            if self.dockWidgetArea(d) == Qt.RightDockWidgetArea
+        ]
+        any_visible = any(d.isVisible() for d in right_docks)
+        for dock in right_docks:
+            if any_visible:
+                dock.hide()
+            else:
+                dock.show()
+        if not any_visible and right_docks:
+            right_docks[0].raise_()
+
     # created to avoid __del__
     def unload(self):
         """Disconnects the flow ui from the design or main application signals"""
